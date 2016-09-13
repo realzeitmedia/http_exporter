@@ -3,4 +3,4 @@
 all: build
 
 build:
-	go build
+	go build -i

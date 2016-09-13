@@ -31,7 +31,7 @@ var (
 			Help:      "end-to-end time of requests",
 			Buckets:   prometheus.ExponentialBuckets(0.001, 2, 16), // 0.001 -> 32 seconds
 		},
-		[]string{"name", "success"},
+		[]string{"name", "result"},
 	)
 )
 
@@ -136,9 +136,9 @@ func spider(name string, target Target, spiderTime, timeout time.Duration) {
 		}
 
 		dt := time.Since(t)
-		sv := "0"
+		sv := "error"
 		if success {
-			sv = "1"
+			sv = "ok"
 		}
 		if *verbose {
 			fmt.Printf("- %s: dt:%s success:%s\n", name, dt, sv)

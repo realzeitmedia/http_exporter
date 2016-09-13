@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"os"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -42,12 +44,14 @@ func main() {
 
 	b, err := ioutil.ReadFile(*configFile)
 	if err != nil {
-		panic(err)
+		fmt.Printf("%s\n", err)
+		os.Exit(1)
 	}
 
 	c := Config{}
 	if err := yaml.Unmarshal(b, &c); err != nil {
-		panic(err)
+		fmt.Printf("%s\n", err)
+		os.Exit(1)
 	}
 
 	for name, t := range c.Targets {
@@ -67,10 +71,23 @@ func main() {
 			timeout = defaultTimeout
 		}
 
+		// sanity check
+		if u, err := url.Parse(t.URL); err != nil {
+			panic(fmt.Sprintf("invalid target %q: %s\n", name, err))
+		} else {
+			switch u.Scheme {
+			case "http", "https":
+			default:
+				fmt.Printf("invalid target %q: unsupported scheme %q\n", name, u.Scheme)
+				os.Exit(1)
+			}
+		}
+
 		go spider(name, t, st, timeout)
 	}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
 		fmt.Fprintf(w, `see <a href="/metrics">/metrics</a>`)
 	})
 	http.Handle("/metrics", promhttp.Handler())
@@ -91,30 +108,33 @@ func spider(name string, target Target, spiderTime, timeout time.Duration) {
 	}
 
 	for {
-		t := time.Now()
+		var (
+			t       = time.Now()
+			success = false
+		)
 		req, err := http.NewRequest(target.Method, target.URL, nil)
 		if err != nil {
-			panic(err) // FIXME
-		}
-		resp, err := client.Do(req)
-		success := err == nil
-		if err == nil {
-			if _, err := ioutil.ReadAll(resp.Body); err != nil {
-				success = false
-			} else {
-				resp.Body.Close()
-				if resp.StatusCode != 200 {
-					if *verbose {
-						fmt.Printf("%s: status code %d\n", name, resp.StatusCode)
+			fmt.Printf("%s: %s\n", name, err)
+		} else {
+			resp, err := client.Do(req)
+			if err == nil {
+				if _, err := ioutil.ReadAll(resp.Body); err == nil {
+					resp.Body.Close()
+					if resp.StatusCode == 200 {
+						success = true
+					} else {
+						if *verbose {
+							fmt.Printf("%s: status code %d\n", name, resp.StatusCode)
+						}
 					}
-					success = false
+				}
+			} else {
+				if *verbose {
+					fmt.Printf("%s: %s\n", name, err)
 				}
 			}
-		} else {
-			if *verbose {
-				fmt.Printf("%s: %s\n", name, err)
-			}
 		}
+
 		dt := time.Since(t)
 		sv := "0"
 		if success {
@@ -124,6 +144,7 @@ func spider(name string, target Target, spiderTime, timeout time.Duration) {
 			fmt.Printf("- %s: dt:%s success:%s\n", name, dt, sv)
 		}
 		reqHist.WithLabelValues(name, sv).Observe(dt.Seconds())
+
 		time.Sleep(spiderTime)
 	}
 }

@@ -1,6 +1,6 @@
 timeout: 10s
 targets:
-    google.com:
+    googlecom:
         url: http://www.google.com/
     realzeit.https:
         url: https://realzeit.io/

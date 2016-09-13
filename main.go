@@ -36,10 +36,6 @@ var (
 	)
 )
 
-func init() {
-	prometheus.MustRegister(reqHist)
-}
-
 func main() {
 	flag.Parse()
 
@@ -54,6 +50,9 @@ func main() {
 		fmt.Printf("%s\n", err)
 		os.Exit(1)
 	}
+
+	req := prometheus.NewRegistry()
+	req.MustRegister(reqHist)
 
 	for name, t := range c.Targets {
 		st := t.SpiderTime
@@ -91,7 +90,7 @@ func main() {
 		w.Header().Set("Content-Type", "text/html")
 		fmt.Fprintf(w, `see <a href="/metrics">/metrics</a>`)
 	})
-	http.Handle("/metrics", promhttp.Handler())
+	http.Handle("/metrics", promhttp.HandlerFor(req, promhttp.HandlerOpts{}))
 	fmt.Printf("listening on %s...\n", *listen)
 	http.ListenAndServe(*listen, nil)
 }

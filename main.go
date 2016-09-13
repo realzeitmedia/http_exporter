@@ -22,7 +22,7 @@ const (
 
 var (
 	configFile = flag.String("config", "./config.yml", "config file")
-	listen     = flag.String("listen", ":8080", "listen address")
+	listen     = flag.String("listen", ":9414", "listen address")
 	verbose    = flag.Bool("v", false, "verbose")
 
 	reqHist = prometheus.NewHistogramVec(

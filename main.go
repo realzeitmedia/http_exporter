@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -100,6 +101,13 @@ func spider(name string, target Target, spiderTime, timeout time.Duration) {
 		Timeout: timeout,
 		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
+		},
+		Transport: &http.Transport{
+			DisableKeepAlives:   true,
+			TLSHandshakeTimeout: timeout,
+			DialContext: (&net.Dialer{
+				Timeout: timeout,
+			}).DialContext,
 		},
 	}
 
